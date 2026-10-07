@@ -15,9 +15,12 @@ body{margin:0;background:#f5f6f7;color:#18191a;font-family:Inter,system-ui,-appl
 @media(max-width:1050px){.kanban{grid-template-columns:1fr 1fr}.stagebar{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:800px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.hero{flex-direction:column}.price{text-align:left}.people{grid-template-columns:1fr}}
 @media(max-width:600px){.kanban{grid-template-columns:1fr}.wrap{padding:12px}.stagebar{grid-template-columns:1fr 1fr}}
+body{font-size:16px}button,input,textarea,select{font:inherit;font-size:14px}button{cursor:pointer;border:1px solid #d7dce2;border-radius:8px;background:#fff;color:#242830;padding:9px 12px}button:hover{background:#f0f3f6}button:disabled{cursor:wait;opacity:.6}.primary{background:#1e435f;border-color:#1e435f;color:#fff}.primary:hover{background:#17354d}.board-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 14px}.board-heading h2{font-size:20px;margin:0}.tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.access-label{font-size:13px;color:#68717c;margin-right:6px}.kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.lane{min-height:240px}.lane-heading{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px}.lane-heading h2{font-size:14px;margin:0;flex:1;text-transform:none;letter-spacing:0;color:#323a44}.count{font-size:12px;margin-left:8px}.column-edit{padding:4px 8px;background:transparent;border-color:transparent}.kcard{cursor:pointer}.kcard:focus-visible{outline:3px solid #326c94;outline-offset:2px}.kcard h3{font-size:16px}.kcard p{font-size:14px}.chip{font-size:12px}.lane-add{width:100%;margin-top:8px;background:transparent;border-style:dashed}.drop-target{outline:3px solid #3e85b3;background:#e1edf5}.dragging{opacity:.45}.empty{font-size:14px;color:#7a838f;min-height:12px}.doneWrap summary{padding:14px;background:#fff;border:1px solid #dfe2e5;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600}.completed-board{margin-top:12px}.saving #board,.saving #board-tools{pointer-events:none;opacity:.7}.saving dialog button{pointer-events:none;opacity:.6}#notice:empty{display:none}#notice{position:sticky;top:0;padding:10px 20px;background:#e8f2ed;border-bottom:1px solid #c5dcd0;color:#215536;font-size:14px;z-index:5}#notice.error{background:#fff0ee;color:#982d24}dialog{box-sizing:border-box;width:min(720px,calc(100% - 24px));max-height:90vh;overflow:auto;border:1px solid #dce0e5;border-radius:16px;padding:24px;box-shadow:0 20px 80px #0003;color:#202731}dialog::backdrop{background:#15212d80}.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.dialog-head h2{margin:0;font-size:22px}.dialog-head button{font-size:24px;line-height:1;padding:5px 10px}label{display:block;font-size:14px;font-weight:600;margin-bottom:14px}input:not([type=checkbox]),select,textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid #ccd2d9;border-radius:7px;background:#fff;margin-top:6px;color:#232a34}textarea{resize:vertical;line-height:1.5}fieldset{border:0;padding:0;margin:0}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}.check{display:flex;align-items:center;gap:8px;font-weight:400}.check input{width:18px;height:18px}.actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.history{margin-top:24px;border-top:1px solid #e2e6eb;padding-top:10px}.history h3{font-size:18px}.updates article{border-top:1px solid #e5e8ec;padding:12px 0}.updates p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 6px;font-size:16px;line-height:1.5}.updates small,.hint{font-size:13px;color:#6c7581;line-height:1.5}.editor-list>div{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid #e5e8ec;padding:12px 0;font-size:14px;overflow-wrap:anywhere}.editor-list span{min-width:0}.stage b,.stage small,.stageProgress{font-size:13px}.metric .l{font-size:12px}.event h3,.person b,.doc{font-size:14px}.event p,.person small{font-size:14px}.event time,.foot{font-size:12px}.kcard p{overflow-wrap:anywhere}.hero p{line-height:1.5}
+@media(max-width:700px){.board-heading{align-items:flex-start;flex-direction:column}.form-grid{grid-template-columns:1fr}.kanban{grid-template-columns:1fr}dialog{padding:18px}.access-label{width:100%}.hero h1{font-size:26px}}
+
 </style>
 </head>
-<body><main class="wrap" id="app"><div class="card">Loading tracker…</div></main>
+<body><div id="notice" role="status" aria-live="polite"></div><dialog id="modal"></dialog><main class="wrap" id="app"><div class="card">Loading tracker…</div></main>
 <script>
 const BASE='https://likcbjwxpetobsoiytmt.supabase.co/rest/v1/';
 const KEY='sb_publishable_sCZh7wCgfU4RwDqkC8TtuA_JGxA24Ah';
@@ -26,8 +29,9 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function fmtDate(v){if(!v)return 'No date';const d=new Date(v+'T12:00:00');return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
 function priorityClass(p){return p==='High'?'prioHigh':p==='Low'?'prioLow':'prioMedium'}
 function card(t,milestoneMap){const stage=milestoneMap[t.milestone_id];return '<div class="kcard"><div class="top"><h3>'+esc(t.title)+'</h3><span class="chip '+priorityClass(t.priority)+'">'+esc(t.priority)+'</span></div><p>'+esc(t.description||'')+'</p><div class="meta">'+(stage?'<span class="chip">Stage: '+esc(stage)+'</span>':'')+'<span class="chip due">'+fmtDate(t.due_date)+'</span><span class="chip">'+esc(t.owner||'—')+'</span>'+(t.waiting_on?'<span class="chip blocked">Waiting: '+esc(t.waiting_on)+'</span>':'')+'</div></div>'}
-(async()=>{try{
-const [states,tasks,people,timeline,milestones,documents]=await Promise.all([load('sale_tracker_state'),load('tasks','sort_order.asc'),load('people','name.asc'),load('timeline_events','event_at.desc'),load('milestones','sequence.asc'),load('documents','name.asc')]);
+async function refresh(){try{
+const [states,tasks,people,timeline,milestones,documents,columns,updates]=await Promise.all([load('sale_tracker_state'),load('tasks','sort_order.asc'),load('people','name.asc'),load('timeline_events','event_at.desc'),load('milestones','sequence.asc'),load('documents','name.asc'),load('board_columns','sort_order.asc'),load('task_updates','created_at.desc')]);
+state={states,tasks,people,timeline,milestones,documents,columns,updates};
 const s=states[0]||{};
 const milestoneMap=Object.fromEntries(milestones.map(m=>[m.id,m.name]));
 const milestoneCounts=Object.fromEntries(milestones.map(m=>{const mapped=tasks.filter(t=>t.milestone_id===m.id);const done=mapped.filter(t=>['Done','Complete'].includes(t.status)).length;return [m.id,{total:mapped.length,done}] }));
@@ -40,15 +44,118 @@ document.getElementById('app').innerHTML=
 '<section class="hero"><div><div class="eyebrow">Property sale control centre</div><h1>24 Mason Street</h1><p>'+esc(s.property_address)+'</p><p style="margin-top:8px">Current stage: <b>'+esc(s.overall_stage)+'</b></p></div><div class="price"><span>Accepted offer</span><strong>£'+Number(s.sale_price_gbp||0).toLocaleString('en-GB')+'</strong><span>'+esc(s.buyer_summary)+'</span></div></section>'+
 '<section class="stagebar">'+milestones.map(m=>{const mc=milestoneCounts[m.id]||{total:0,done:0};return '<div class="stage '+(m.status==='Complete'?'doneStage':m.status==='In progress'?'currentStage':'')+'"><b>'+esc(m.name)+'</b><small>'+esc(m.status)+'</small><div class="stageProgress">'+(mc.total?mc.done+'/'+mc.total+' actions done':'No mapped actions')+'</div></div>'}).join('')+'</section>'+
 '<section class="summary"><div class="metric"><div class="n">'+open+'</div><div class="l">Open items</div></div><div class="metric"><div class="n">'+blockers+'</div><div class="l">Blockers</div></div><div class="metric"><div class="n">'+waiting+'</div><div class="l">Waiting</div></div><div class="metric"><div class="n">'+doneCount+'</div><div class="l">Done</div></div></section>'+
-'<section class="kanban">'+
-'<div class="lane"><h2>This week <span class="count">'+thisWeek.length+'</span></h2>'+thisWeek.map(t=>card(t,milestoneMap)).join('')+'</div>'+
-'<div class="lane"><h2>Waiting / blocked <span class="count">'+waitingTasks.length+'</span></h2>'+waitingTasks.map(t=>card(t,milestoneMap)).join('')+'</div>'+
-'<div class="lane"><h2>Later <span class="count">'+later.length+'</span></h2>'+later.map(t=>card(t,milestoneMap)).join('')+'</div>'+
-'</section>'+
-'<div class="doneWrap"><button id="doneToggle" class="doneToggle" type="button">Done <span class="count">'+doneTasks.length+'</span><span class="chev">⌄</span></button><div id="doneLane" class="lane doneLane">'+doneTasks.map(t=>card(t,milestoneMap)).join('')+'</div></div>'+
+'<div id="board-tools"></div><div id="board"></div>'+
 '<section class="grid"><div class="card"><h2>Timeline</h2>'+timeline.slice(0,8).map(e=>'<div class="event"><time>'+new Date(e.event_at).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'})+'</time><h3>'+esc(e.title)+(e.actor?' — '+esc(e.actor):'')+'</h3><p>'+esc(e.summary)+'</p></div>').join('')+'</div><aside><div class="card"><h2>People</h2><div class="people">'+people.map(p=>'<div class="person"><b>'+esc(p.name)+'</b><small>'+esc((p.role||'')+(p.organisation?' · '+p.organisation:''))+'</small>'+(p.notes?'<small>'+esc(p.notes)+'</small>':'')+'</div>').join('')+'</div></div><div class="card" style="margin-top:18px"><h2>Documents</h2>'+documents.map(d=>'<div class="doc"><div><b>'+esc(d.name)+'</b><div style="color:#777">'+esc(d.holder||'—')+'</div></div><span class="chip">'+esc(d.status)+'</span></div>').join('')+'</div></aside></section>'+
 '<div class="foot">Live data from the dedicated 24 Mason Street Supabase project</div>';
-const doneToggle=document.getElementById('doneToggle');const doneLane=document.getElementById('doneLane');if(doneToggle&&doneLane){doneToggle.addEventListener('click',()=>{doneLane.classList.toggle('open');doneToggle.classList.toggle('open')})}
-}catch(e){document.getElementById('app').innerHTML='<div class="card">Could not load tracker: '+esc(e.message)+'</div>'}})();
+renderBoard();
+}catch(e){document.getElementById('app').innerHTML='<div class="card">Could not load tracker: '+esc(e.message)+'</div>'}}
+
+let state={},session=null,canEdit=false,busy=false,dragId=null,modalTask=null;
+const ADMIN='vadimegorov@outlook.com',AUTH=BASE.replace('rest/v1/','auth/v1/');
+try{session=JSON.parse(sessionStorage.getItem('tracker-session')||'null')}catch{}
+const modal=document.getElementById('modal');
+function notice(message,error=false){const n=document.getElementById('notice');n.textContent=message;n.className=error?'error':'';n.hidden=false}
+function closeModal(){modal.close();modalTask=null}
+function showModal(html){modal.innerHTML=html;if(!modal.open)modal.showModal();modal.querySelector('[data-close]')?.addEventListener('click',closeModal)}
+function dialogHead(title){return '<div class="dialog-head"><h2>'+esc(title)+'</h2><button type="button" data-close aria-label="Close">×</button></div>'}
+async function authRequest(path,body){const r=await fetch(AUTH+path,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.msg||d.error_description||d.message||'Sign-in failed');return d}
+async function accessCheck(){
+ if(!session){canEdit=false;return}
+ if(session.expires_at*1000<Date.now()+60000){try{session=await authRequest('token?grant_type=refresh_token',{refresh_token:session.refresh_token});sessionStorage.setItem('tracker-session',JSON.stringify(session))}catch{session=null;sessionStorage.removeItem('tracker-session');canEdit=false;return}}
+ const r=await fetch(BASE+'tracker_editors?select=email',{headers:{apikey:KEY,Authorization:'Bearer '+session.access_token}});
+ if(!r.ok)throw Error('Could not check editor access');
+ const editors=await r.json();canEdit=editors.some(e=>e.email===session.user.email.toLowerCase());
+}
+async function write(table,method,body,filter=''){
+ if(!canEdit)throw Error('Sign in with an authorised editor email to save changes.');
+ await accessCheck();if(!canEdit)throw Error('Your editor access has expired. Sign in again.');
+ const r=await fetch(BASE+table+filter,{method,headers:{apikey:KEY,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json',Prefer:'return=representation'},body:body===null?undefined:JSON.stringify(body)});
+ const data=await r.json().catch(()=>null);
+ if(!r.ok)throw Error(data?.message||'Could not save changes');
+ if(method==='PATCH'&&(!data||!data.length))throw Error('This item changed in another session. Close and reopen it to load the latest version.');
+ return data;
+}
+async function saving(action,success='Saved'){
+ if(busy)return;busy=true;document.body.classList.add('saving');notice('Saving…');
+ try{await action();notice(success);await refresh();return true}catch(e){notice(e.message,true);return false}finally{busy=false;document.body.classList.remove('saving')}
+}
+function complete(t){return !!t.completed_at||['Done','Complete'].includes(t.status)}
+function options(value){return state.columns.map(c=>'<option value="'+c.id+'" '+(c.id===value?'selected':'')+'>'+esc(c.name)+'</option>').join('')}
+function kanbanCard(t){
+ const notes=state.updates.filter(u=>u.task_id===t.id).length;
+ return '<article class="kcard" data-task="'+t.id+'" draggable="'+canEdit+'" tabindex="0" role="button" aria-label="Open '+esc(t.title)+'"><div class="top"><h3>'+esc(t.title)+'</h3><span class="chip '+priorityClass(t.priority)+'">'+esc(t.priority)+'</span></div><p>'+esc(t.description||'')+'</p><div class="meta"><span class="chip">'+esc(t.owner||'Unassigned')+'</span>'+(t.due_date?'<span class="chip due">'+fmtDate(t.due_date)+'</span>':'')+(t.waiting_on?'<span class="chip">Waiting: '+esc(t.waiting_on)+'</span>':'')+(t.blocker&&!complete(t)?'<span class="chip blocked">Blocker</span>':'')+(notes?'<span class="chip">'+notes+' updates</span>':'')+'</div></article>';
+}
+function renderBoard(){
+ const tools=document.getElementById('board-tools');
+ tools.innerHTML='<div class="board-heading"><h2>Tasks</h2><div class="tools"><span class="access-label">'+(canEdit?'Editing as '+esc(session.user.email):'View only')+'</span>'+(canEdit?'<button id="add-card">Add card</button><button id="add-column">Add column</button>':'')+(session?.user.email?.toLowerCase()===ADMIN?'<button id="access">Access</button>':'')+'<button id="signin">'+(session?'Sign out':'Sign in to edit')+'</button><button id="reload">Refresh</button></div></div>';
+ const active=state.columns.filter(c=>!c.is_complete),done=state.columns.filter(c=>c.is_complete);
+ function lane(c){const tasks=state.tasks.filter(t=>t.column_id===c.id);return '<section class="lane" data-column="'+c.id+'"><div class="lane-heading"><h2>'+esc(c.name)+' <span class="count">'+tasks.length+'</span></h2>'+(canEdit?'<button class="column-edit" data-column-edit="'+c.id+'" aria-label="Edit '+esc(c.name)+' column">•••</button>':'')+'</div><div class="cards">'+tasks.map(kanbanCard).join('')+'</div><p class="empty">'+(!tasks.length?'Drop a card here':'')+'</p>'+(canEdit?'<button class="lane-add" data-add="'+c.id+'">+ Add card</button>':'')+'</section>'}
+ document.getElementById('board').innerHTML='<div class="kanban">'+active.map(lane).join('')+'</div>'+(done.length?'<details class="doneWrap" '+(sessionStorage.getItem('show-done')==='true'?'open':'')+'><summary>Completed · '+state.tasks.filter(complete).length+'</summary><div class="kanban completed-board">'+done.map(lane).join('')+'</div></details>':'');
+ tools.querySelector('#signin').onclick=()=>{if(session){session=null;canEdit=false;sessionStorage.removeItem('tracker-session');renderBoard()}else signIn()};
+ tools.querySelector('#reload').onclick=()=>refresh();
+ tools.querySelector('#add-card')?.addEventListener('click',()=>editCard());
+ tools.querySelector('#add-column')?.addEventListener('click',()=>editColumn());
+ tools.querySelector('#access')?.addEventListener('click',editAccess);
+ document.querySelector('#board details')?.addEventListener('toggle',e=>sessionStorage.setItem('show-done',e.target.open));
+ document.querySelectorAll('[data-task]').forEach(el=>{
+  el.onclick=()=>editCard(el.dataset.task);
+  el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();editCard(el.dataset.task)}};
+  el.ondragstart=e=>{if(!canEdit||busy){e.preventDefault();return}dragId=el.dataset.task;e.dataTransfer.setData('text/plain',dragId);e.dataTransfer.effectAllowed='move';el.classList.add('dragging')};
+  el.ondragend=()=>{dragId=null;el.classList.remove('dragging');document.querySelectorAll('.drop-target').forEach(n=>n.classList.remove('drop-target'))};
+ });
+ document.querySelectorAll('[data-column]').forEach(el=>{
+  el.ondragover=e=>{if(canEdit&&dragId){e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('drop-target')}};
+  el.ondragleave=e=>{if(!el.contains(e.relatedTarget))el.classList.remove('drop-target')};
+  el.ondrop=e=>{e.preventDefault();el.classList.remove('drop-target');const t=state.tasks.find(t=>t.id===dragId);if(t&&t.column_id!==el.dataset.column)moveCard(t,el.dataset.column)};
+ });
+ document.querySelectorAll('[data-add]').forEach(el=>el.onclick=()=>editCard(null,el.dataset.add));
+ document.querySelectorAll('[data-column-edit]').forEach(el=>el.onclick=()=>editColumn(el.dataset.columnEdit));
+}
+function taskFilter(t){return '?id=eq.'+t.id+'&updated_at=eq.'+encodeURIComponent(t.updated_at)}
+async function moveCard(t,column){await saving(()=>write('tasks','PATCH',{column_id:column},taskFilter(t)),'Card moved and saved')}
+function field(label,name,value,type='text'){return '<label>'+label+'<input name="'+name+'" type="'+type+'" value="'+esc(value||'')+'"></label>'}
+function editCard(id=null,column=null){
+ const t=state.tasks.find(t=>t.id===id)||{column_id:column||state.columns.find(c=>!c.is_complete)?.id,priority:'Medium',owner:'Vadim'};
+ modalTask=t.id||'new';
+ const history=state.updates.filter(u=>u.task_id===id);
+ showModal(dialogHead(id?'Card details':'New card')+'<form id="card-form"><fieldset '+(!canEdit?'disabled':'')+'>'+field('Title','title',t.title)+'<label>Description<textarea name="description" rows="3">'+esc(t.description||'')+'</textarea></label><div class="form-grid"><label>Column / status<select name="column_id">'+options(t.column_id)+'</select></label><label>Priority<select name="priority">'+['High','Medium','Low'].map(p=>'<option '+(p===t.priority?'selected':'')+'>'+p+'</option>').join('')+'</select></label>'+field('Owner','owner',t.owner)+field('Due date','due_date',t.due_date,'date')+field('Waiting on','waiting_on',t.waiting_on)+field('Category','category',t.category)+'<label>Sale stage<select name="milestone_id"><option value="">No stage</option>'+state.milestones.map(m=>'<option value="'+m.id+'" '+(m.id===t.milestone_id?'selected':'')+'>'+esc(m.name)+'</option>').join('')+'</select></label><label class="check"><input name="blocker" type="checkbox" '+(t.blocker?'checked':'')+'> Blocks the sale</label></div></fieldset>'+(canEdit?'<div class="actions"><button type="submit" class="primary">'+(id?'Save changes':'Create card')+'</button>'+(id?'<button id="complete-card" type="button">'+(complete(t)?'Reopen':'Mark complete')+'</button>':'')+'</div>':'')+'</form>'+(id?'<section class="history"><h3>Updates & notes</h3>'+(canEdit?'<form id="note-form"><label>New update<textarea name="body" required maxlength="10000" rows="3" placeholder="What happened, or what needs doing next?"></textarea></label><button class="primary" type="submit">Add update</button></form>':'')+'<div class="updates">'+(history.map(u=>'<article><p>'+esc(u.body)+'</p><small>'+esc(u.actor)+' · '+new Date(u.created_at).toLocaleString('en-GB')+'</small></article>').join('')||'<p>No updates yet.</p>')+'</div></section>':''));
+ const title=modal.querySelector('[name=title]');title.required=true;title.maxLength=200;
+ modal.querySelector('#card-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const b=Object.fromEntries(['title','description','column_id','priority','owner','due_date','waiting_on','category','milestone_id'].map(k=>[k,f.get(k)||null]));b.title=b.title.trim();if(!b.title){title.focus();return}b.blocker=f.has('blocker');if(!id)b.sort_order=Math.max(0,...state.tasks.map(t=>t.sort_order))+10;
+  if(await saving(()=>write('tasks',id?'PATCH':'POST',b,id?taskFilter(t):'')))closeModal();
+ };
+ modal.querySelector('#complete-card')?.addEventListener('click',async()=>{const c=state.columns.find(c=>c.is_complete!==complete(t));if(!c){notice('Create a '+(complete(t)?'working':'completed')+' column first.',true);return}if(await saving(()=>write('tasks','PATCH',{column_id:c.id},taskFilter(t))))closeModal()});
+ modal.querySelector('#note-form')?.addEventListener('submit',async e=>{e.preventDefault();const body=new FormData(e.target).get('body').trim();if(!body)return;if(await saving(()=>write('task_updates','POST',{task_id:id,body,actor:session.user.email}),'Update saved'))editCard(id)});
+}
+function editColumn(id=null){
+ const c=state.columns.find(c=>c.id===id)||{name:'',task_status:'Open',sort_order:Math.max(0,...state.columns.map(c=>c.sort_order))+10};
+ showModal(dialogHead(id?'Edit column':'New column')+'<form id="column-form">'+field('Column name','name',c.name)+field('Status','task_status',c.task_status)+field('Position','sort_order',c.sort_order,'number')+'<label class="check"><input type="checkbox" name="is_complete" '+(c.is_complete?'checked':'')+'> Cards in this column are completed</label><p class="hint">Lower positions appear first. Completed columns appear in the collapsible section.</p><button class="primary" type="submit">Save column</button></form>');
+ modal.querySelector('[name=name]').required=true;modal.querySelector('[name=name]').maxLength=80;modal.querySelector('[name=task_status]').required=true;
+ modal.querySelector('[name=is_complete]').disabled=!!id;
+ modal.querySelector('[name=task_status]').readOnly=!!id;
+ modal.querySelector('#column-form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),name=f.get('name').trim(),status=f.get('task_status').trim();if(!name||!status)return;
+  const b={name,sort_order:Number(f.get('sort_order'))};if(!id){b.task_status=f.has('is_complete')?'Done':status;b.is_complete=f.has('is_complete')}
+  if(await saving(()=>write('board_columns',id?'PATCH':'POST',b,id?'?id=eq.'+id+'&updated_at=eq.'+encodeURIComponent(c.updated_at):'')))closeModal();
+ };
+}
+function signIn(){
+ showModal(dialogHead('Sign in to edit')+'<form id="email-form">'+field('Email address','email',ADMIN,'email')+'<button class="primary">Send sign-in email</button></form><form id="verify-form" hidden><label>Sign-in link or code<textarea name="token" rows="3" required placeholder="Copy the sign-in link from your email and paste it here"></textarea></label><p class="hint">Copy the link behind the email’s sign-in button. If your email contains a code, you can use that instead.</p><button class="primary">Verify and sign in</button></form><p id="auth-message" role="status"></p>');
+ let email='';
+ modal.querySelector('#email-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;email=new FormData(e.target).get('email').trim().toLowerCase();try{await authRequest('otp',{email,create_user:true});modal.querySelector('#verify-form').hidden=false;modal.querySelector('#auth-message').textContent='Check your email for the sign-in link.'}catch(err){modal.querySelector('#auth-message').textContent=err.message}finally{btn.disabled=false}};
+ modal.querySelector('#verify-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;const token=new FormData(e.target).get('token').trim();try{let body={email,token,type:'email'};if(token.startsWith('https://')){const u=new URL(token);if(u.origin!==new URL(AUTH).origin)throw Error('Use the sign-in link from this tracker’s email.');const h=u.searchParams.get('token')||u.searchParams.get('token_hash');if(!h)throw Error('Copy the original link behind the email sign-in button.');body={token_hash:h,type:'email'}}session=await authRequest('verify',body);sessionStorage.setItem('tracker-session',JSON.stringify(session));await accessCheck();closeModal();renderBoard();notice(canEdit?'Signed in. Changes will save automatically.':'Signed in, but this email has no editor access. Ask the administrator to add it.',!canEdit)}catch(err){modal.querySelector('#auth-message').textContent=err.message}finally{btn.disabled=false}};
+}
+async function editAccess(){
+ try{
+ const r=await fetch(BASE+'tracker_editors?select=email&order=email.asc',{headers:{apikey:KEY,Authorization:'Bearer '+session.access_token}});if(!r.ok)throw Error('Could not load access');const editors=await r.json();
+ showModal(dialogHead('Editor access')+'<p>You are the administrator. Add an email to let that person sign in and edit this tracker.</p><form id="access-form">'+field('Editor email','email','','email')+'<button class="primary">Add editor</button></form><div class="editor-list">'+editors.map(e=>'<div><span>'+esc(e.email)+(e.email===ADMIN?' · Administrator':'')+'</span>'+(e.email!==ADMIN?'<button data-remove="'+esc(e.email)+'">Remove</button>':'')+'</div>').join('')+'</div>');
+ modal.querySelector('[name=email]').required=true;
+ modal.querySelector('#access-form').onsubmit=async e=>{e.preventDefault();const email=new FormData(e.target).get('email').trim().toLowerCase();if(await saving(()=>write('tracker_editors','POST',{email}),'Editor added'))editAccess()};
+ modal.querySelectorAll('[data-remove]').forEach(el=>el.onclick=async()=>{if(await saving(()=>write('tracker_editors','DELETE',null,'?email=eq.'+encodeURIComponent(el.dataset.remove)),'Editor removed'))editAccess()});
+ }catch(e){notice(e.message,true)}
+}
+async function boot(){try{await accessCheck()}catch(e){notice(e.message,true)}await refresh()}
+boot();
+setInterval(()=>{if(!busy&&!modal.open&&!document.hidden)refresh()},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy&&!modal.open)refresh()});
+
 </script>
 </body></html>
