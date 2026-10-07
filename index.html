@@ -50,8 +50,9 @@ document.getElementById('app').innerHTML=
 renderBoard();
 }catch(e){document.getElementById('app').innerHTML='<div class="card">Could not load tracker: '+esc(e.message)+'</div>'}}
 
-let state={},session=null,canEdit=false,busy=false,dragId=null,modalTask=null;
-const ADMIN='vadimegorov@outlook.com',AUTH=BASE.replace('rest/v1/','auth/v1/');
+let state={},session=null,canEdit=false,isAdmin=false,busy=false,dragId=null,modalTask=null;
+const AUTH=BASE.replace('rest/v1/','auth/v1/');
+const SITE_URL='https://mason-street-sale-tracker-dpwc.vercel.app/';
 try{session=JSON.parse(sessionStorage.getItem('tracker-session')||'null')}catch{}
 const modal=document.getElementById('modal');
 function notice(message,error=false){const n=document.getElementById('notice');n.textContent=message;n.className=error?'error':'';n.hidden=false}
@@ -60,11 +61,13 @@ function showModal(html){modal.innerHTML=html;if(!modal.open)modal.showModal();m
 function dialogHead(title){return '<div class="dialog-head"><h2>'+esc(title)+'</h2><button type="button" data-close aria-label="Close">×</button></div>'}
 async function authRequest(path,body){const r=await fetch(AUTH+path,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.msg||d.error_description||d.message||'Sign-in failed');return d}
 async function accessCheck(){
- if(!session){canEdit=false;return}
+ if(!session){canEdit=false;isAdmin=false;return}
  if(session.expires_at*1000<Date.now()+60000){try{session=await authRequest('token?grant_type=refresh_token',{refresh_token:session.refresh_token});sessionStorage.setItem('tracker-session',JSON.stringify(session))}catch{session=null;sessionStorage.removeItem('tracker-session');canEdit=false;return}}
  const r=await fetch(BASE+'tracker_editors?select=email',{headers:{apikey:KEY,Authorization:'Bearer '+session.access_token}});
  if(!r.ok)throw Error('Could not check editor access');
  const editors=await r.json();canEdit=editors.some(e=>e.email===session.user.email.toLowerCase());
+ const adminResponse=await fetch(BASE+'rpc/tracker_is_admin',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:'{}'});
+ isAdmin=adminResponse.ok&&(await adminResponse.json())===true;
 }
 async function write(table,method,body,filter=''){
  if(!canEdit)throw Error('Sign in with an authorised editor email to save changes.');
@@ -87,11 +90,11 @@ function kanbanCard(t){
 }
 function renderBoard(){
  const tools=document.getElementById('board-tools');
- tools.innerHTML='<div class="board-heading"><h2>Tasks</h2><div class="tools"><span class="access-label">'+(canEdit?'Editing as '+esc(session.user.email):'View only')+'</span>'+(canEdit?'<button id="add-card">Add card</button><button id="add-column">Add column</button>':'')+(session?.user.email?.toLowerCase()===ADMIN?'<button id="access">Access</button>':'')+'<button id="signin">'+(session?'Sign out':'Sign in to edit')+'</button><button id="reload">Refresh</button></div></div>';
+ tools.innerHTML='<div class="board-heading"><h2>Tasks</h2><div class="tools"><span class="access-label">'+(canEdit?'Editing as '+esc(session.user.email):'View only')+'</span>'+(canEdit?'<button id="add-card">Add card</button><button id="add-column">Add column</button>':'')+(isAdmin?'<button id="access">Access</button>':'')+'<button id="signin">'+(session?'Sign out':'Sign in to edit')+'</button><button id="reload">Refresh</button></div></div>';
  const active=state.columns.filter(c=>!c.is_complete),done=state.columns.filter(c=>c.is_complete);
  function lane(c){const tasks=state.tasks.filter(t=>t.column_id===c.id);return '<section class="lane" data-column="'+c.id+'"><div class="lane-heading"><h2>'+esc(c.name)+' <span class="count">'+tasks.length+'</span></h2>'+(canEdit?'<button class="column-edit" data-column-edit="'+c.id+'" aria-label="Edit '+esc(c.name)+' column">•••</button>':'')+'</div><div class="cards">'+tasks.map(kanbanCard).join('')+'</div><p class="empty">'+(!tasks.length?'Drop a card here':'')+'</p>'+(canEdit?'<button class="lane-add" data-add="'+c.id+'">+ Add card</button>':'')+'</section>'}
  document.getElementById('board').innerHTML='<div class="kanban">'+active.map(lane).join('')+'</div>'+(done.length?'<details class="doneWrap" '+(sessionStorage.getItem('show-done')==='true'?'open':'')+'><summary>Completed · '+state.tasks.filter(complete).length+'</summary><div class="kanban completed-board">'+done.map(lane).join('')+'</div></details>':'');
- tools.querySelector('#signin').onclick=()=>{if(session){session=null;canEdit=false;sessionStorage.removeItem('tracker-session');renderBoard()}else signIn()};
+ tools.querySelector('#signin').onclick=()=>{if(session){session=null;canEdit=false;isAdmin=false;sessionStorage.removeItem('tracker-session');renderBoard()}else signIn()};
  tools.querySelector('#reload').onclick=()=>refresh();
  tools.querySelector('#add-card')?.addEventListener('click',()=>editCard());
  tools.querySelector('#add-column')?.addEventListener('click',()=>editColumn());
@@ -138,21 +141,35 @@ function editColumn(id=null){
  };
 }
 function signIn(){
- showModal(dialogHead('Sign in to edit')+'<form id="email-form">'+field('Email address','email',ADMIN,'email')+'<button class="primary">Send sign-in email</button></form><form id="verify-form" hidden><label>Sign-in link or code<textarea name="token" rows="3" required placeholder="Copy the sign-in link from your email and paste it here"></textarea></label><p class="hint">Copy the link behind the email’s sign-in button. If your email contains a code, you can use that instead.</p><button class="primary">Verify and sign in</button></form><p id="auth-message" role="status"></p>');
+ showModal(dialogHead('Sign in to edit')+'<form id="email-form">'+field('Email address','email','','email')+'<button class="primary">Send sign-in email</button></form><form id="verify-form" hidden><label>Sign-in link or code<textarea name="token" rows="3" required placeholder="Copy the sign-in link from your email and paste it here"></textarea></label><p class="hint">You can also paste the sign-in link here, or enter a code if your email contains one.</p><button class="primary">Verify and sign in</button></form><p id="auth-message" role="status"></p>');
  let email='';
- modal.querySelector('#email-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;email=new FormData(e.target).get('email').trim().toLowerCase();try{await authRequest('otp',{email,create_user:true});modal.querySelector('#verify-form').hidden=false;modal.querySelector('#auth-message').textContent='Check your email for the sign-in link.'}catch(err){modal.querySelector('#auth-message').textContent=err.message}finally{btn.disabled=false}};
+ modal.querySelector('#email-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;email=new FormData(e.target).get('email').trim().toLowerCase();try{await authRequest('otp?redirect_to='+encodeURIComponent(SITE_URL),{email,create_user:true});modal.querySelector('#verify-form').hidden=false;modal.querySelector('#auth-message').textContent='Check your email and click the sign-in link to return to this website.'}catch(err){modal.querySelector('#auth-message').textContent=err.message}finally{btn.disabled=false}};
  modal.querySelector('#verify-form').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button');btn.disabled=true;const token=new FormData(e.target).get('token').trim();try{let body={email,token,type:'email'};if(token.startsWith('https://')){const u=new URL(token);if(u.origin!==new URL(AUTH).origin)throw Error('Use the sign-in link from this tracker’s email.');const h=u.searchParams.get('token')||u.searchParams.get('token_hash');if(!h)throw Error('Copy the original link behind the email sign-in button.');body={token_hash:h,type:'email'}}session=await authRequest('verify',body);sessionStorage.setItem('tracker-session',JSON.stringify(session));await accessCheck();closeModal();renderBoard();notice(canEdit?'Signed in. Changes will save automatically.':'Signed in, but this email has no editor access. Ask the administrator to add it.',!canEdit)}catch(err){modal.querySelector('#auth-message').textContent=err.message}finally{btn.disabled=false}};
 }
 async function editAccess(){
  try{
  const r=await fetch(BASE+'tracker_editors?select=email&order=email.asc',{headers:{apikey:KEY,Authorization:'Bearer '+session.access_token}});if(!r.ok)throw Error('Could not load access');const editors=await r.json();
- showModal(dialogHead('Editor access')+'<p>You are the administrator. Add an email to let that person sign in and edit this tracker.</p><form id="access-form">'+field('Editor email','email','','email')+'<button class="primary">Add editor</button></form><div class="editor-list">'+editors.map(e=>'<div><span>'+esc(e.email)+(e.email===ADMIN?' · Administrator':'')+'</span>'+(e.email!==ADMIN?'<button data-remove="'+esc(e.email)+'">Remove</button>':'')+'</div>').join('')+'</div>');
+ showModal(dialogHead('Editor access')+'<p>You are the administrator. Add an email to let that person sign in and edit this tracker.</p><form id="access-form">'+field('Editor email','email','','email')+'<button class="primary">Add editor</button></form><div class="editor-list">'+editors.map(e=>'<div><span>'+esc(e.email)+(e.email===session.user.email?' · Administrator':'')+'</span>'+(e.email!==session.user.email?'<button data-remove="'+esc(e.email)+'">Remove</button>':'')+'</div>').join('')+'</div>');
  modal.querySelector('[name=email]').required=true;
  modal.querySelector('#access-form').onsubmit=async e=>{e.preventDefault();const email=new FormData(e.target).get('email').trim().toLowerCase();if(await saving(()=>write('tracker_editors','POST',{email}),'Editor added'))editAccess()};
  modal.querySelectorAll('[data-remove]').forEach(el=>el.onclick=async()=>{if(await saving(()=>write('tracker_editors','DELETE',null,'?email=eq.'+encodeURIComponent(el.dataset.remove)),'Editor removed'))editAccess()});
  }catch(e){notice(e.message,true)}
 }
-async function boot(){try{await accessCheck()}catch(e){notice(e.message,true)}await refresh()}
+async function handleAuthCallback(){
+ const hash=new URLSearchParams(location.hash.slice(1));
+ if(!hash.has('access_token')&&!hash.has('error'))return;
+ history.replaceState(null,'',location.pathname+location.search);
+ if(hash.has('error'))throw Error(hash.get('error_description')||'The sign-in link has expired. Request a new link.');
+ const access_token=hash.get('access_token'),refresh_token=hash.get('refresh_token');
+ if(!refresh_token)throw Error('The sign-in link is incomplete. Request a new link.');
+ const r=await fetch(AUTH+'user',{headers:{apikey:KEY,Authorization:'Bearer '+access_token}});
+ if(!r.ok)throw Error('The sign-in link has expired. Request a new link.');
+ const user=await r.json();
+ session={access_token,refresh_token,user,expires_at:Math.floor(Date.now()/1000)+Number(hash.get('expires_in')||3600)};
+ sessionStorage.setItem('tracker-session',JSON.stringify(session));
+ return true;
+}
+async function boot(){try{const signedIn=await handleAuthCallback();await accessCheck();if(signedIn)notice(canEdit?'Signed in. Your changes will save automatically.':'Signed in, but this account has no editor access.',!canEdit)}catch(e){notice(e.message,true)}await refresh()}
 boot();
 setInterval(()=>{if(!busy&&!modal.open&&!document.hidden)refresh()},30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy&&!modal.open)refresh()});
